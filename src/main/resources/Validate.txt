@@ -1,0 +1,41 @@
+# 1. Login — get JWT
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"p"}'
+
+# 2. Extract token (macOS/Linux)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"p"}' | grep -oP '"token":"\K[^"]+')
+
+# 3. Access protected endpoint
+curl http://localhost:8080/home \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4. Access admin-only endpoint
+curl http://localhost:8080/admin \
+  -H "Authorization: Bearer $TOKEN"
+
+# 5. Test with wrong role (user can't access /admin)
+TOKEN_USER=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"p"}' | grep -oP '"token":"\K[^"]+')
+
+curl -w "\nHTTP: %{http_code}\n" http://localhost:8080/admin \
+  -H "Authorization: Bearer $TOKEN_USER"
+# Expected: 403
+
+# 6. No token — should be 401
+curl -w "\nHTTP: %{http_code}\n" http://localhost:8080/home
+# Expected: 401
+
+# 7. Invalid token — should be 401
+curl -w "\nHTTP: %{http_code}\n" http://localhost:8080/home \
+  -H "Authorization: Bearer invalid.token.here"
+# Expected: 401
+
+# 8. Wrong password — should be 401
+curl -w "\nHTTP: %{http_code}\n" -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"wrong"}'
+# Expected: 401   
